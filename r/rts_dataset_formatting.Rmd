@@ -203,20 +203,36 @@ overlapping_data <- new_data |>
   rowwise() |>
   mutate(
     Intersections = get_uuids_by_index_string(Intersections, rts_data),
-    RepeatRTS = NA,
-    StabilizedRTS = NA,
-    MergedRTS = NA,
     .after = Intersections
   ) |>
   ungroup()
 
 if (nrow(overlapping_data) > 0) {
+  
+  if (!'RepeatRTS' %in% colnames(overlapping_data)) {
+    
+    overlapping_data <- overlapping_data |>
+      mutate(RepeatRTS = NA)
+    
+  } else if (!'StabilizedRTS' %in% colnames(overlapping_data)) {
+    
+    overlapping_data <- overlapping_data |>
+      mutate(StabilizedRTS = NA)
+    
+  } else if (!'MergedRTS' %in% colnames(overlapping_data)) {
+    
+    overlapping_data <- overlapping_data |>
+      mutate(MergedRTS = NA)
+    
+  }
+  
   write_sf(overlapping_data,
            paste('r_output',
                  paste0(
                    str_split(new_data_file, '\\.')[[1]][1],
                    '_overlapping_polygons.shp'),
                  sep = '/'))
+  
 }
 ```
 
@@ -246,6 +262,7 @@ edited_file <- paste('r_output',
                      sep = '/')
 
 if (file.exists(edited_file)) {
+  
   overlapping_data <- read_sf(edited_file) |>
   select(all_of(c(!!!required_fields)),
          any_of(c(!!!optional_fields)), # currently StabilizedRTS and MergedRTS are in here, meaning that there isn't an error if these columns are missing
@@ -262,6 +279,7 @@ new_data <- new_data |>
   mutate(UUID = case_when(is.na(RepeatRTS) ~ UUID,
                           !is.na(RepeatRTS) ~ RepeatRTS)) |>
   select(!matches('geometry')) # doesn't actually remove geometry column, but makes sure it is the last column after the join
+
 } else {
   
   new_data <- new_data |>
