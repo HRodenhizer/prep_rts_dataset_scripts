@@ -7,7 +7,6 @@ output: html_document
 
 # TODO
 
--  make sure script will run even if there isn't a manually edited file (when there are no intersections)
 -  add update of official data set's StabilizedRTS and MergedRTS columns? Should the stabilized/combined polygon get a link to the new/old polygon(s) in those columns?
 -  Add explicit column types when reading in data to make sure that the format is correct
 - check for NAs in places they shouldn't be
@@ -234,31 +233,27 @@ Your job is to inspect each of the polygons listed in the 'Intersections' column
 When this is done, each of the UUIDs in the Intersections column should have been copied into one (and only one) of the 'RepeatRTS', 'StabilizedRTS', or 'MergedRTS' columns.
 
 
-# Load Manually Edited File
+# Load Manually Edited File and Join to New Data
+
+Add the 'RepeatRTS', 'StabilizedRTS', and 'MergedRTS' columns that you just edited back into `new_data`.
 
 ```{r}
-overlapping_data <- read_sf(
-  paste('r_output', 
-        paste0(
-          str_split(new_data_file, '\\.')[[1]][1], 
-          '_overlapping_polygons_edited.shp'
-          ), 
-        sep = '/')
-) |>
+edited_file <- paste('r_output', 
+                     paste0(
+                       str_split(new_data_file, '\\.')[[1]][1], 
+                       '_overlapping_polygons_edited.shp'
+                     ), 
+                     sep = '/')
+
+if (file.exists(edited_file)) {
+  overlapping_data <- read_sf(edited_file) |>
   select(all_of(c(!!!required_fields)),
          any_of(c(!!!optional_fields)), # currently StabilizedRTS and MergedRTS are in here, meaning that there isn't an error if these columns are missing
          all_of(c(!!!new_fields)),
          seed,
          Intersections = matches('^I.+t', ignore.case = FALSE),
          RepeatRTS = matches('^R.+RTS', ignore.case = FALSE))
-```
 
-
-# Join to New Data
-
-Add the 'RepeatRTS', 'StabilizedRTS', and 'MergedRTS' columns that you just edited back into `new_data`.
-
-```{r}
 new_data <- new_data |>
   full_join(overlapping_data |>
               st_drop_geometry(),
@@ -267,9 +262,18 @@ new_data <- new_data |>
   mutate(UUID = case_when(is.na(RepeatRTS) ~ UUID,
                           !is.na(RepeatRTS) ~ RepeatRTS)) |>
   select(!matches('geometry')) # doesn't actually remove geometry column, but makes sure it is the last column after the join
+} else {
+  
+  new_data <- new_data |>
+    mutate(StabilizedRTS = NA,
+           MergedRTS = NA) |>
+    select(!matches('geometry'))
+  
+  warning('No manually edited file has been imported. This is okay if there were no overlapping polygons, but is a problem otherwise.')
+}
 ```
 
-# Check for Intersections within new RTS Data Set
+# Check for Intersections within New RTS Data Set
 
 Intersections within the new data set are assumed to be repeat delineations of the same RTS feature. If this is not true (e.g. if you have delineated an old RTS scar and an active RTS feature on top of it), this code will not assign UUIDs properly. In this case, please get in touch with us to determine how to proceed.
 
