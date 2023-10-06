@@ -1,0 +1,116 @@
+---
+title: "Prep Test Dataset"
+author: "Heidi Rodenhizer"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sf)
+library(dplyr)
+library(stringr)
+library(lubridate)
+library(reticulate)
+```
+
+```{r}
+years <-  c('2022', '2022', '2023', '2023', '2022', '2023',
+            '2022', '2023', '2022', '2023', '2023', '2022')
+```
+
+```{r}
+polys <- read_sf('/home/hrodenhizer/Documents/permafrost_pathways/rts_mapping/rts_dataset/input_data/rts_dataset_test_polygons.shp')
+
+polys <- polys |>
+  bind_cols(st_coordinates(st_centroid(polys))) |>
+  rename(CentroidLat = X, CentroidLon = Y) |>
+  mutate(RegionName = 'Yamal-Gydan',
+         CreatorLab = 'Rodenhizer',
+         BaseMapDate = paste0('01-05-', years, ',30-09-', years),
+         BaseMapSource = 'WorldView-2',
+         BaseMapResolution = 4,
+         TrainClass = 'Positive') |>
+  select(id, 
+         CentroidLat, 
+         CentroidLon, 
+         RegionName, 
+         CreatorLab,
+         ContributionDate = ContrDate, 
+         BaseMapDate, 
+         BaseMapSource, 
+         BaseMapResolution,
+         TrainClass)
+```
+
+```{r}
+current_data <- polys |>
+  filter(ContributionDate == as_date('2023-09-01'))
+
+new_data <- polys |>
+  filter(ContributionDate == as_date('2023-09-28'))
+```
+
+```{r}
+current_data <- current_data |>
+  mutate(seed = str_flatten(c(CentroidLat,
+                              CentroidLon,
+                              RegionName,
+                              CreatorLab,
+                              ContributionDate,
+                              BaseMapDate,
+                              BaseMapSource,
+                              BaseMapResolution,
+                              TrainClass)),
+         .by = c(CentroidLat, CentroidLon))
+
+rts_seeds <- pull(current_data, seed)
+```
+
+```{python}
+import uuid
+```
+
+```{python}
+rts_uuids = [str(uuid.uuid5(uuid.NAMESPACE_DNS, name = seed)) for seed in r.rts_seeds]
+r.rts_uuids = rts_uuids
+```
+
+```{r}
+current_data <- current_data |>
+  mutate(UUID = rts_uuids,
+         StabilizedRTS = '',
+         MergedRTS = '') |>
+  select(CentroidLat, 
+         CentroidLon, 
+         RegionName, 
+         CreatorLab,
+         ContributionDate, 
+         BaseMapDate, 
+         BaseMapSource, 
+         BaseMapResolution,
+         TrainClass,
+         UUID,
+         StabilizedRTS,
+         MergedRTS)
+
+new_data <- new_data |>
+  bind_rows(new_data |>
+              filter(id == 4) |>
+              mutate(id = 13,
+                     BaseMapDate = '01-05-2022,30-9-2022')) |>
+  mutate(CustomColumn1 = NA) |>
+  select(-geometry)
+```
+
+```{r}
+write_sf(current_data,
+         '/home/hrodenhizer/Documents/permafrost_pathways/rts_mapping/rts_dataset/input_data/rts_dataset_test_polygons_current.shp')
+
+write_sf(new_data,
+         '/home/hrodenhizer/Documents/permafrost_pathways/rts_mapping/rts_dataset/input_data/rts_dataset_test_polygons_new.shp')
+```
+
