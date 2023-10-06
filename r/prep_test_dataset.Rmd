@@ -26,7 +26,14 @@ years <-  c('2022', '2022', '2023', '2023', '2022', '2023',
 polys <- read_sf('/home/hrodenhizer/Documents/permafrost_pathways/rts_mapping/rts_dataset/input_data/rts_dataset_test_polygons.shp')
 
 polys <- polys |>
-  bind_cols(st_coordinates(st_centroid(polys))) |>
+  bind_cols(
+    st_coordinates(
+      st_centroid(
+        polys
+      ) |>
+          st_transform('EPSG:4326')
+    )
+  ) |>
   rename(CentroidLat = X, CentroidLon = Y) |>
   mutate(RegionName = 'Yamal-Gydan',
          CreatorLab = 'Rodenhizer',
@@ -108,9 +115,9 @@ new_data <- new_data |>
 
 ```{r}
 write_sf(current_data,
-         '/home/hrodenhizer/Documents/permafrost_pathways/rts_mapping/rts_dataset/input_data/rts_dataset_test_polygons_current.shp')
+         'input_data/rts_dataset_test_polygons_current.shp')
 
 write_sf(new_data,
-         '/home/hrodenhizer/Documents/permafrost_pathways/rts_mapping/rts_dataset/input_data/rts_dataset_test_polygons_new.shp')
+         'input_data/rts_dataset_test_polygons_new.shp')
 ```
 
