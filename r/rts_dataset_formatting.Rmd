@@ -8,10 +8,10 @@ output: html_document
 # TODO
 
 -  add update of official data set's StabilizedRTS and MergedRTS columns? Should the stabilized/combined polygon get a link to the new/old polygon(s) in those columns?
--  Add explicit column types when reading in data to make sure that the format is correct
-- check for NAs in places they shouldn't be
+-  Add check for column format, NAs, and reasonable values
+-  Add support for creating CentroidLat and CentroidLon columns if they are not present?
 -  check that all polygons with intersections either have the same UUID as another polygon or have UUIDs listed in the stabilized or merged columns
--  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually
+-  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
 - remove filepaths and metadata columns that I set
 -  think through environment sharing (rts_dataset.rproj, .env, renv)
 -  finalize file organization/filepaths so that they don't differ between R and Python
@@ -27,8 +27,8 @@ library(jsonlite)
 
 ## User-Defined Input
 
-Before starting, copy your new file into the data directory of this rproject.
-Provide the file name to the data:
+Before starting, copy your new file into the input_data directory of this rproject.
+Provide the file name of the new data:
 
 ```{r}
 new_data_file <- 'rts_dataset_test_polygons_new.shp'  # set this
@@ -48,6 +48,96 @@ new_fields <- c('CustomColumn1' = 'CstmCl1')
 ```
 
 # Functions
+
+## check_lat
+
+```{r}
+check_lat <- function(lat) {
+  
+  correct_type <- class(lat) == 'numeric'
+  missing_values <- any(is.na(lat))
+  reasonable_values <- all(lat >= -180 & lat <= 180)
+  
+  if (!correct_type) {
+    stop('The CentroidLat column is not numeric. Ensure that latitude is reported as decimal degress in WGS 84.')
+  } else if (missing_values) {
+    stop('The CentroidLat column is missing values.')
+  } else if (!reasonable_values) {
+    stop('Unexpected values found in the CentroidLat column. Ensure that CentroidLat is listed as decimal degress in WGS 84.')
+  }
+}
+```
+
+## check_lon
+
+```{r}
+check_lon <- function(lon) {
+  
+  correct_type <- class(lon) == 'numeric'
+  missing_values <- any(is.na(lon))
+  reasonable_values <- all(lon >= -90 & lon <= 90)
+  
+  if (!correct_type) {
+    stop('The CentroidLon column is not numeric. Ensure that longitude is listed as decimal degress in WGS 84.')
+  } else if (missing_values) {
+    stop('The CentroidLon column is missing values.')
+  } else if (!reasonable_values) {
+    stop('Unexpected values found in the CentroidLon column. Ensure that CentroidLon is listed as decimal degress in WGS 84.')
+  }
+}
+```
+
+## check_region
+
+```{r}
+check_region <- function(region) {
+  
+  correct_type <- class(region) == 'character'
+  missing_values <- any(is.na(region))
+  
+  if (!correct_type) {
+    stop('The RegionName column is not a string.')
+  } else if (missing_values) {
+    stop('The RegionName column is missing values.')
+  }
+}
+```
+
+## check_creator
+
+```{r}
+check_creator <- function(creator) {
+  
+  correct_type <- class(creator) == 'character'
+  missing_values <- any(is.na(creator))
+  
+  if (!correct_type) {
+    stop('The creatorName column is not a string.')
+  } else if (missing_values) {
+    stop('The creatorName column is missing values.')
+  }
+}
+```
+
+## get_earliest_uuid
+
+Return `UUID` from feature with earliest `BaseMapDate` for features in `new_data` that overlap eachother.
+
+```{r}
+get_earliest_uuid <- function(df, index_col, self_intersections_col) {
+  
+  indices <- c(index_col,
+           as.numeric(split_string_to_vector(self_intersections_col)))
+  
+  return(
+    df |>
+      slice(indices) |>
+      filter(BaseMapDate == min(BaseMapDate)) |>
+      pull(UUID)
+  )
+  
+}
+```
 
 ## get_uuids_by_index_string
 
@@ -71,26 +161,6 @@ split_string_to_vector <- function(uuid_string) {
   uuid_string |>
     str_split(',') |>
     pluck(1)
-}
-```
-
-## get_earliest_uuid
-
-Return `UUID` from feature with earliest `BaseMapDate` for features in `new_data` that overlap eachother.
-
-```{r}
-get_earliest_uuid <- function(df, index_col, self_intersections_col) {
-  
-  indices <- c(index_col,
-           as.numeric(split_string_to_vector(self_intersections_col)))
-  
-  return(
-    df |>
-      slice(indices) |>
-      filter(BaseMapDate == min(BaseMapDate)) |>
-      pull(UUID)
-  )
-  
 }
 ```
 
@@ -140,6 +210,17 @@ new_data <- read_sf(new_data_filepath) |>
     any_of(c(!!!optional_fields)),
     all_of(c(!!!new_fields)))  # If you get the error `Error in `all_of()`: ! Can't subset columns that don't exist. ✖ Column `{new_column}`, check to make sure that you specified the name of your new column correctly
 ```
+
+
+# Check Metadata Format of New Data
+
+```{r}
+check_lat(new_data$CentroidLat)
+check_lon(new_data$CentroidLon)
+check_region(new_data$RegionName)
+check_creator(new_data$CreatorLab)
+```
+
 
 # Generate UUIDs
 
