@@ -7,7 +7,6 @@ output: html_document
 
 # TODO
 
--  change json ReplacedRTS column with StabilizedRTS and MergedRTS columns
 -  make sure script will run even if there isn't a manually edited file (when there are no intersections)
 -  add update of official data set's StabilizedRTS and MergedRTS columns? Should the stabilized/combined polygon get a link to the new/old polygon(s) in those columns?
 -  Add explicit column types when reading in data to make sure that the format is correct
@@ -101,7 +100,7 @@ get_earliest_uuid <- function(df, index_col, self_intersections_col) {
 
 ```{r}
 ### update this to download the current version automatically ##################
-col_metadata <- read_csv('metadata_description.csv')
+col_metadata <- read_csv('input_data/metadata_description.csv')
 ################################################################################
 
 required_fields <- col_metadata |>
