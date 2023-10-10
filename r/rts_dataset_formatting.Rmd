@@ -466,12 +466,17 @@ edited_file <- paste('r_output',
 if (file.exists(edited_file)) {
   
   overlapping_data <- read_sf(edited_file) |>
-  select(all_of(c(!!!required_fields)),
-         any_of(c(!!!optional_fields)), # currently StabilizedRTS and MergedRTS are in here, meaning that there isn't an error if these columns are missing
-         all_of(c(!!!new_fields)),
-         seed,
-         Intersections = matches('^I.+t', ignore.case = FALSE),
-         RepeatRTS = matches('^R.+RTS', ignore.case = FALSE))
+    select(all_of(c(!!!required_fields)),
+           all_of(c(!!!optional_fields[
+             which(names(optional_fields) %in% c('StabilizedRTS', 'MergedRTS'))
+           ])),
+           any_of(c(!!!optional_fields[
+             which(!names(optional_fields) %in% c('StabilizedRTS', 'MergedRTS'))
+           ])),
+           all_of(c(!!!new_fields)),
+           seed,
+           Intersections = matches('^I.+t', ignore.case = FALSE),
+           RepeatRTS = matches('^R.+RTS', ignore.case = FALSE))
 
 new_data <- new_data |>
   full_join(overlapping_data |>
