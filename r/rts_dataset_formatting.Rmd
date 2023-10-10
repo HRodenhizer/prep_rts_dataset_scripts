@@ -8,7 +8,7 @@ output: html_document
 # TODO
 
 -  add update of official data set's StabilizedRTS and MergedRTS columns? Should the stabilized/combined polygon get a link to the new/old polygon(s) in those columns?
--  Add check for column format, NAs, and reasonable values
+-  Make sure that StabilizedRTS and MergedRTS are required in output even though metadata sheet may not say they are required
 -  Add support for creating CentroidLat and CentroidLon columns if they are not present?
 -  check that all polygons with intersections either have the same UUID as another polygon or have UUIDs listed in the stabilized or merged columns
 -  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
@@ -49,76 +49,6 @@ new_fields <- c('CustomColumn1' = 'CstmCl1')
 
 # Functions
 
-## check_lat
-
-```{r}
-check_lat <- function(lat) {
-  
-  correct_type <- class(lat) == 'numeric'
-  missing_values <- any(is.na(lat))
-  reasonable_values <- all(lat >= -180 & lat <= 180)
-  
-  if (!correct_type) {
-    stop('The CentroidLat column is not numeric. Ensure that latitude is reported as decimal degress in WGS 84.')
-  } else if (missing_values) {
-    stop('The CentroidLat column is missing values.')
-  } else if (!reasonable_values) {
-    stop('Unexpected values found in the CentroidLat column. Ensure that CentroidLat is listed as decimal degress in WGS 84.')
-  }
-}
-```
-
-## check_lon
-
-```{r}
-check_lon <- function(lon) {
-  
-  correct_type <- class(lon) == 'numeric'
-  missing_values <- any(is.na(lon))
-  reasonable_values <- all(lon >= -90 & lon <= 90)
-  
-  if (!correct_type) {
-    stop('The CentroidLon column is not numeric. Ensure that longitude is listed as decimal degress in WGS 84.')
-  } else if (missing_values) {
-    stop('The CentroidLon column is missing values.')
-  } else if (!reasonable_values) {
-    stop('Unexpected values found in the CentroidLon column. Ensure that CentroidLon is listed as decimal degress in WGS 84.')
-  }
-}
-```
-
-## check_region
-
-```{r}
-check_region <- function(region) {
-  
-  correct_type <- class(region) == 'character'
-  missing_values <- any(is.na(region))
-  
-  if (!correct_type) {
-    stop('The RegionName column is not a string.')
-  } else if (missing_values) {
-    stop('The RegionName column is missing values.')
-  }
-}
-```
-
-## check_creator
-
-```{r}
-check_creator <- function(creator) {
-  
-  correct_type <- class(creator) == 'character'
-  missing_values <- any(is.na(creator))
-  
-  if (!correct_type) {
-    stop('The creatorName column is not a string.')
-  } else if (missing_values) {
-    stop('The creatorName column is missing values.')
-  }
-}
-```
-
 ## get_earliest_uuid
 
 Return `UUID` from feature with earliest `BaseMapDate` for features in `new_data` that overlap eachother.
@@ -151,6 +81,147 @@ get_uuids_by_index_string <- function(index_string, df) {
                 pull(UUID) |>
                 unique(),
               collapse = ',')
+}
+```
+
+## run_formatting_checks
+
+```{r}
+check_lat <- function(lat) {
+  
+  correct_type <- class(lat) == 'numeric'
+  missing_values <- any(is.na(lat))
+  reasonable_values <- all(lat >= -180 & lat <= 180)
+  
+  if (!correct_type) {
+    stop('The CentroidLat column is not numeric. Ensure that latitude is reported as decimal degress in WGS 84.')
+  } else if (missing_values) {
+    stop('The CentroidLat column is missing values.')
+  } else if (!reasonable_values) {
+    stop('Unexpected values found in the CentroidLat column. Ensure that CentroidLat is listed as decimal degress in WGS 84.')
+  }
+}
+
+check_lon <- function(lon) {
+  
+  correct_type <- class(lon) == 'numeric'
+  missing_values <- any(is.na(lon))
+  reasonable_values <- all(lon >= -90 & lon <= 90)
+  
+  if (!correct_type) {
+    stop('The CentroidLon column is not numeric. Ensure that longitude is listed as decimal degress in WGS 84.')
+  } else if (missing_values) {
+    stop('The CentroidLon column is missing values.')
+  } else if (!reasonable_values) {
+    stop('Unexpected values found in the CentroidLon column. Ensure that CentroidLon is listed as decimal degress in WGS 84.')
+  }
+}
+
+check_region <- function(region) {
+  
+  correct_type <- class(region) == 'character'
+  missing_values <- any(is.na(region))
+  
+  if (!correct_type) {
+    stop('The RegionName column is not a string.')
+  } else if (missing_values) {
+    stop('The RegionName column is missing values.')
+  }
+}
+
+check_creator <- function(creator) {
+  
+  correct_type <- class(creator) == 'character'
+  missing_values <- any(is.na(creator))
+  
+  if (!correct_type) {
+    stop('The CreatorName column is not a string.')
+  } else if (missing_values) {
+    stop('The CreatorName column is missing values.')
+  }
+}
+
+check_contribution_date <- function(contribution_date) {
+  
+  correct_type <- class(contribution_date) == 'Date'
+  missing_values <- any(is.na(contribution_date))
+  
+  if (!correct_type) {
+    stop('The ContributionDate column does not contain dates (or they are improperly formatted).')
+  } else if (missing_values) {
+    stop('The ContributionDate column is missing values.')
+  }
+}
+
+check_basemap_date <- function(basemap_date) {
+  
+  correct_type <- all(
+    as.logical(
+      map(
+        basemap_date |>
+          str_split(pattern = ','),
+        ~ class(
+          .x |>
+            dmy()
+        ) == 'Date'
+      )
+    )
+  )
+  missing_values <- any(is.na(basemap_date))
+  
+  if (!correct_type) {
+    stop('The BaseMapDate column does not contain dates (or they are improperly formatted).')
+  } else if (missing_values) {
+    stop('The BaseMapDate column is missing values.')
+  }
+}
+
+check_source <- function(source) {
+  
+  correct_type <- class(source) == 'character'
+  missing_values <- any(is.na(source))
+  
+  if (!correct_type) {
+    stop('The BaseMapSource column is not a string.')
+  } else if (missing_values) {
+    stop('The BaseMapSource column is missing values.')
+  }
+}
+
+check_resolution <- function(resolution) {
+  
+  correct_type <- class(resolution) == 'numeric'
+  missing_values <- any(is.na(resolution))
+  
+  if (!correct_type) {
+    stop('The BaseMapResolution column is not numeric.')
+  } else if (missing_values) {
+    stop('The BaseMapResolution column is missing values.')
+  }
+}
+
+check_train_class <- function(train_class) {
+  
+  correct_type <- class(train_class) == 'character'
+  missing_values <- any(is.na(train_class))
+  
+  if (!correct_type) {
+    stop('The TrainClass column is not a string.')
+  } else if (missing_values) {
+    stop('The TrainClass column is missing values.')
+  }
+}
+
+run_formatting_checks <- function(df) {
+  check_lat(df$CentroidLat)
+  check_lon(df$CentroidLon)
+  check_region(df$RegionName)
+  check_creator(df$CreatorLab)
+  check_contribution_date(df$ContributionDate)
+  check_basemap_date(df$BaseMapDate)
+  check_source(df$BaseMapSource)
+  check_resolution(df$BaseMapResolution)
+  check_train_class(df$TrainClass) 
 }
 ```
 
@@ -215,10 +286,7 @@ new_data <- read_sf(new_data_filepath) |>
 # Check Metadata Format of New Data
 
 ```{r}
-check_lat(new_data$CentroidLat)
-check_lon(new_data$CentroidLon)
-check_region(new_data$RegionName)
-check_creator(new_data$CreatorLab)
+run_formatting_checks(new_data)
 ```
 
 
