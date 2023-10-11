@@ -18,15 +18,14 @@ output: html_document
 # Set-Up
 
 ```{r}
+library(reticulate)
 library(sf)
 library(tidyverse)
-library(reticulate)
-library(jsonlite)
 ```
 
 ## User-Defined Input
 
-Before starting, copy your new file into the input_data directory of this rproject.
+Before starting, copy your new file into the input_data directory.
 Provide the file name of the new data:
 
 ```{r}
