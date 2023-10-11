@@ -10,7 +10,6 @@ output: html_document
 -  add update of official data set's StabilizedRTS and MergedRTS columns? Should the stabilized/combined polygon get a link to the new/old polygon(s) in those columns?
 -  Should output be only the new file or the combined datasets?
 -  Have contributors make a branch named with lab name and date?
--  check that all polygons with intersections either have the same UUID as another polygon or have UUIDs listed in the stabilized or merged columns
 -  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
 - remove filepaths and metadata columns that I set
 -  think through environment sharing (rts_dataset.rproj, .env, renv)
@@ -69,6 +68,43 @@ add_empty_columns <- function(df, column_names) {
     }
   }
   return(df)
+}
+```
+
+## check_intersection_info
+
+```{r}
+check_intersection_info <- function(df) {
+  
+  duplicated_uuids <- df |>
+    as_tibble() |>
+    select(UUID) |>
+    summarise(count = n(),
+              .by = UUID) |>
+    filter(count > 1) |>
+    pull(UUID)
+  
+  int_info_complete <- df |>
+      mutate(
+        int_info_complete = case_when(
+          is.na(Intersections) & str_length(SelfIntersectionIndices) == 0 ~ TRUE,
+          !is.na(Intersections) & (!is.na(RepeatRTS) | !is.na(MergedRTS) | !is.na(StabilizedRTS) | !is.na(AccidentalOverlap)) ~ TRUE,
+          str_length(SelfIntersectionIndices) > 0 & UUID %in% duplicated_uuids ~ TRUE,
+          TRUE ~ FALSE
+        )
+      )
+  if (!all(int_info_complete$int_info_complete)) {
+    
+    print(
+      int_info_complete |>
+        filter(int_info_complete == FALSE)
+      )
+    
+    stop('Incomplete information provided about intersecting RTS polygons. Please complete information for rows printed above.')
+  }
+  
+  print('Intersection information is complete.')
+  
 }
 ```
 
@@ -244,7 +280,9 @@ run_formatting_checks <- function(df) {
   check_basemap_date(df$BaseMapDate)
   check_source(df$BaseMapSource)
   check_resolution(df$BaseMapResolution)
-  check_train_class(df$TrainClass) 
+  check_train_class(df$TrainClass)
+  
+  print('Formatting looks good!')
 }
 ```
 
@@ -428,6 +466,9 @@ if (nrow(overlapping_data) > 0) {
     
   }
   
+  overlapping_data <- overlapping_data |>
+      mutate(AccidentalOverlap = NA)
+  
   write_sf(overlapping_data,
            paste('r_output',
                  paste0(
@@ -440,13 +481,15 @@ if (nrow(overlapping_data) > 0) {
 
 At this point, you will need to manually check all polygons with intersections against the polygons in the official RTS data set in your preferred GIS software and save the output to `r paste0(str_split(new_data_file, '\\.')[[1]][1], '_overlapping_polygons_edited.shp')` (press Ctrl+Enter while cursor is in the preceding in-line code chunk to see the actual file name, rather than the code to produce the file name).  When possible/necessary, try to find imagery that matches the date of the intersecting polygons - this may require contacting the lab that did the original delineation.
 
-Your job is to inspect each of the polygons listed in the 'Intersections' column compared to the new RTS feature and manually copy and paste the UUIDs from the 'Intersections' column into the 'RepeatRTS', 'StabilizedRTS', or 'MergedRTS' based on the relationship between the two polygons.
+Your job is to inspect each of the polygons listed in the 'Intersections' column compared to the new RTS feature and manually copy and paste the UUIDs from the 'Intersections' column into the 'RepeatRTS', 'StabilizedRTS', 'MergedRTS', or 'AccidentalOverlap' based on the relationship between the two polygons.
 
 - Paste the UUID into the RepeatRTS column when the new RTS feature is the same RTS feature as the RTS feature in the 'Intersections' column, but was delineated at a different point in time, by a different lab at the same point in time, or from different imagery at the same point in time. The RTS feature is the same when it was the result of the same RTS initiation event.
 
 - Paste the UUID into the StabilizedRTS column when the RTS feature in the 'Intersections' column is a stabilized RTS scar as of the date of the imagery used in the new RTS delineations.
 
 - Paste the UUID into the MergedRTS column when multiple RTS features in the 'Intersections' column merged to form the new RTS feature.
+
+- Paste the UUID into the AccidentalOverlap column when inaccuracies in delineation of separate RTS features lead to overlap (e.g. features that are very close to each other and the polygons barely touch). 
 
 When this is done, each of the UUIDs in the Intersections column should have been copied into one (and only one) of the 'RepeatRTS', 'StabilizedRTS', or 'MergedRTS' columns.
 
@@ -476,7 +519,8 @@ if (file.exists(edited_file)) {
            all_of(c(!!!new_fields)),
            seed,
            Intersections = matches('^I.+t', ignore.case = FALSE),
-           RepeatRTS = matches('^R.+RTS', ignore.case = FALSE))
+           RepeatRTS = matches('^R.+RTS', ignore.case = FALSE),
+           AccidentalOverlap = matches('Ac.+O', ignore.case = FALSE))
 
 new_data <- new_data |>
   full_join(overlapping_data |>
@@ -490,8 +534,10 @@ new_data <- new_data |>
 } else {
   
   new_data <- new_data |>
-    mutate(StabilizedRTS = NA,
-           MergedRTS = NA) |>
+    mutate(RepeatRTS = NA,
+           StabilizedRTS = NA,
+           MergedRTS = NA,
+           AccidentalOverlap = NA) |>
     select(!matches('geometry'))
   
   warning('No manually edited file has been imported. This is okay if there were no overlapping polygons, but is a problem otherwise.')
@@ -523,6 +569,13 @@ new_data <- new_data %>%
     ),
     .after = RepeatRTS
   )
+```
+
+
+# Check Completeness of Intersection Information
+
+```{r}
+check_intersection_info(new_data)
 ```
 
 
