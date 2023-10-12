@@ -389,11 +389,11 @@ new_data <- new_data |>
   mutate(
     seed = str_flatten(
       c(
-        CentroidLat,
-        CentroidLon,
+        round(CentroidLat, 13),
+        round(CentroidLon, 13),
         RegionName,
         CreatorLab,
-        ContributionDate,
+        format(ContributionDate, '%d-%m-%Y'),
         BaseMapDate,
         BaseMapSource,
         BaseMapResolution,
