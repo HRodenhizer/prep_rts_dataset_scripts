@@ -497,7 +497,7 @@ When this is done, each of the UUIDs in the Intersections column should have bee
 
 # Load Manually Edited File and Join to New Data
 
-Add the 'RepeatRTS', 'StabilizedRTS', and 'MergedRTS' columns that you just edited back into `new_data`.
+Add the 'RepeatRTS', 'StabilizedRTS', 'MergedRTS', or 'AccidentalOverlap' columns that you just edited back into `new_data`.
 
 ```{r}
 edited_file <- paste('r_output', 
