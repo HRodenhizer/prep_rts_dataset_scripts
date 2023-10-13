@@ -428,7 +428,7 @@ new_data <- new_data |>
 
 Find intersecting RTS polygons from the official RTS data set and retrieve their UUIDs. Create an empty column for the UUIDs of polygons that have been repeated that will be manually populated.
 ```{r}
-overlapping_data <- new_data |>
+new_data <- new_data |>
   mutate(
     Intersections = map_chr(
       st_intersects(new_data,
@@ -438,7 +438,6 @@ overlapping_data <- new_data |>
     ),
     .after = colnames(new_data)[length(which(colnames(new_data) != 'geometry'))]
   ) |>
-  filter(str_length(Intersections) > 0) |>
   rowwise() |>
   mutate(
     Intersections = get_uuids_by_index_string(Intersections, rts_data),
@@ -446,27 +445,30 @@ overlapping_data <- new_data |>
   ) |>
   ungroup()
 
+overlapping_data <- new_data |>
+  filter(str_length(Intersections) > 0)
+
 if (nrow(overlapping_data) > 0) {
   
   if (!'RepeatRTS' %in% colnames(overlapping_data)) {
-    
     overlapping_data <- overlapping_data |>
-      mutate(RepeatRTS = NA)
-    
-  } else if (!'StabilizedRTS' %in% colnames(overlapping_data)) {
-    
+      mutate(RepeatRTS = NA,
+             .before = geometry)
+  }
+  if (!'MergedRTS' %in% colnames(overlapping_data)) {
     overlapping_data <- overlapping_data |>
-      mutate(StabilizedRTS = NA)
-    
-  } else if (!'MergedRTS' %in% colnames(overlapping_data)) {
-    
+      mutate(MergedRTS = NA,
+             .before = geometry)
+  }
+  if (!'StabilizedRTS' %in% colnames(overlapping_data)) {
     overlapping_data <- overlapping_data |>
-      mutate(MergedRTS = NA)
-    
+      mutate(StabilizedRTS = NA,
+             .before = geometry)
   }
   
   overlapping_data <- overlapping_data |>
-      mutate(AccidentalOverlap = NA)
+    mutate(AccidentalOverlap = NA,
+           .before = geometry)
   
   write_sf(overlapping_data,
            paste('r_output',
@@ -531,13 +533,12 @@ new_data <- new_data |>
   select(!matches('geometry')) # doesn't actually remove geometry column, but makes sure it is the last column after the join
 
 } else {
-  
   new_data <- new_data |>
     mutate(RepeatRTS = NA,
-           StabilizedRTS = NA,
            MergedRTS = NA,
-           AccidentalOverlap = NA) |>
-    select(!matches('geometry'))
+           StabilizedRTS = NA,
+           AccidentalOverlap = NA,
+           .before = geometry)
   
   warning('No manually edited file has been imported. This is okay if there were no overlapping polygons, but is a problem otherwise.')
 }
