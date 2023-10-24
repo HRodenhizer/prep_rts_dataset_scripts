@@ -7,7 +7,6 @@ output: html_document
 
 # TODO
 
--  add update of official data set's StabilizedRTS and MergedRTS columns? Should the stabilized/combined polygon get a link to the new/old polygon(s) in those columns?
 -  Should output be only the new file or the combined datasets?
 -  Have contributors make a branch named with lab name and date?
 -  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
@@ -36,7 +35,7 @@ new_data_filepath <- paste(
   sep = '/')
 ```
 
-Provide the names of any metadata fields in your new file that are not already in the official RTS Data Set (please check the list to ensure that the field has not been included previously):
+Provide the names of any metadata fields in your new file that are not already in the official RTS Data Set (please check the list to ensure that the field has not been included previously) that you would like to be included in the compiled data set:
 
 ```{r}
 # Use the format `FullName = AbbreviatedName`, where the FullName should be a human-readable name and the AbbreviatedName should be the ESRI shapefile driver abbreviated version of the the FullName.
@@ -51,6 +50,14 @@ Have you already created RTS centroid columns, or would you like them to be crea
 # Example: 
 # calculate_centroid <- FALSE
 calculate_centroid <- FALSE
+```
+
+Would you like your formatted new data to be output in its own file (in which case you will email the file of new features to us to merge with the compiled data set) or appended the compiled dataset (in which case you will commit your updated file to your forked github repository and create a pull request to add the file to the official github repository). Your decision here should mostly be based on your comfort with github. If you have no idea what the second half of that sentence means, please opt for the separate file and email it to us.
+
+```{r}
+# Example
+# separate_file <- TRUE
+separate_file <- FALSE
 ```
 
 
@@ -322,9 +329,10 @@ If you get the error 'Error in `all_of()`: ! Can't subset columns that don't exi
 
 ```{r}
 ### update this to find the dataset online and download it #####################
+rts_file <- 'rts_dataset_test_polygons_current.shp'
 rts_data_filepath <- paste(
   'input_data',
-  'rts_dataset_test_polygons_current.shp',
+  rts_file,
   sep = '/'
   )
 
@@ -597,12 +605,30 @@ new_data <- new_data |>
 # Save Formatted File as a Shapefile
 
 ```{r}
-write_sf(new_data,
+if (separate_file) {
+  write_sf(new_data,
          paste('r_output', 
                paste0(
                  str_split(new_data_file, '\\.')[[1]][1], 
                  '_formatted.shp'), 
                sep = '/'))
+} else {
+  
+  rts_data <- rts_data |>
+  add_empty_columns(
+    names(new_fields)
+    ) |>
+  select(names(all_fields))
+  
+  updated_data <- rts_data |>
+    rbind(new_data)
+  
+  write_sf(updated_data,
+         paste('r_output', 
+               rts_file, 
+               sep = '/'))
+}
+
 ```
 
-Now you are ready to submit `r paste0(str_split(new_data_file, '\\.')[[1]][1], '_formatted.shp')`!
+Now you are ready to submit `r ifelse(separate_file == TRUE, paste0(str_split(new_data_file, '\\.')[[1]][1], '_formatted.shp'), rts_file)`!

@@ -23,7 +23,7 @@ years <-  c('2022', '2022', '2023', '2023', '2022', '2023',
 ```
 
 ```{r}
-polys <- read_sf('/home/hrodenhizer/Documents/permafrost_pathways/rts_mapping/rts_dataset/input_data/rts_dataset_test_polygons.shp')
+polys <- read_sf('./input_data/rts_dataset_test_polygons.shp')
 
 polys <- polys |>
   bind_cols(
@@ -90,7 +90,8 @@ r.rts_uuids = rts_uuids
 current_data <- current_data |>
   mutate(UUID = rts_uuids,
          StabilizedRTS = '',
-         MergedRTS = '') |>
+         MergedRTS = '',
+         Area = as.numeric(st_area(geometry))) |>
   select(CentroidLat, 
          CentroidLon, 
          RegionName, 
@@ -102,7 +103,8 @@ current_data <- current_data |>
          TrainClass,
          UUID,
          StabilizedRTS,
-         MergedRTS)
+         MergedRTS,
+         Area)
 
 new_data <- new_data |>
   bind_rows(new_data |>
