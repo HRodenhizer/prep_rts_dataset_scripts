@@ -25,7 +25,7 @@ library(tidyverse)
 
 ## User-Defined Input
 
-Before starting, copy your new file into the input_data directory.
+Before starting, copy your new shapefile into the input_data directory. Make sure that your shapefile uses EPSG:3413 (WGS 84 / NSIDC Sea Ice Polar Stereographic North) as the coordinate system, otherwise this script will not work.
 Provide the file name of the new data:
 
 ```{r}
@@ -429,6 +429,7 @@ new_data <- new_data |>
 Find intersecting RTS polygons from the official RTS data set and retrieve their UUIDs. Create an empty column for the UUIDs of polygons that have been repeated that will be manually populated.
 ```{r}
 new_data <- new_data |>
+  # If you get an error about st_crs(x) does not equal st_crs(y), please ensure that your shapefile coordinates system is EPSG:3413
   mutate(
     Intersections = map_chr(
       st_intersects(new_data,
