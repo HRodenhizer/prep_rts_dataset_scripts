@@ -57,7 +57,7 @@ Would you like your formatted new data to be output in its own file (in which ca
 ```{r}
 # Example
 # separate_file <- TRUE
-separate_file <- FALSE
+separate_file <- TRUE
 ```
 
 
@@ -93,7 +93,9 @@ check_intersection_info <- function(df) {
   int_info_complete <- df |>
       mutate(
         int_info_complete = case_when(
-          is.na(Intersections) & str_length(SelfIntersectionIndices) == 0 ~ TRUE,
+          (
+            is.na(Intersections) | str_length(Intersections)==0
+            ) & str_length(SelfIntersectionIndices) == 0 ~ TRUE,
           !is.na(Intersections) & (!is.na(RepeatRTS) | !is.na(MergedRTS) | !is.na(StabilizedRTS) | !is.na(AccidentalOverlap)) ~ TRUE,
           str_length(SelfIntersectionIndices) > 0 & UUID %in% duplicated_uuids ~ TRUE,
           TRUE ~ FALSE
@@ -227,7 +229,7 @@ check_basemap_date <- function(basemap_date) {
           str_split(pattern = ','),
         ~ class(
           .x |>
-            dmy()
+            ymd()
         ) == 'Date'
       )
     )
@@ -401,7 +403,6 @@ new_data <- new_data |>
         round(CentroidLon, 13),
         RegionName,
         CreatorLab,
-        format(ContributionDate, '%d-%m-%Y'),
         BaseMapDate,
         BaseMapSource,
         BaseMapResolution,

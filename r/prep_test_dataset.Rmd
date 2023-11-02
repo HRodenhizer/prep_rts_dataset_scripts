@@ -37,7 +37,7 @@ polys <- polys |>
   rename(CentroidLat = X, CentroidLon = Y) |>
   mutate(RegionName = 'Yamal-Gydan',
          CreatorLab = 'Rodenhizer',
-         BaseMapDate = paste0('01-05-', years, ',30-09-', years),
+         BaseMapDate = paste0(years, '-05-01,', years, '-09-30'),
          BaseMapSource = 'WorldView-2',
          BaseMapResolution = 4,
          TrainClass = 'Positive') |>
@@ -110,7 +110,7 @@ new_data <- new_data |>
   bind_rows(new_data |>
               filter(id == 4) |>
               mutate(id = 13,
-                     BaseMapDate = '01-05-2022,30-9-2022')) |>
+                     BaseMapDate = '2022-05-01,2022-9-30')) |>
   mutate(CustomColumn1 = NA) |>
   select(-geometry)
 ```
