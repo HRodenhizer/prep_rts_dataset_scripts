@@ -7,7 +7,7 @@ output: html_document
 
 # TODO
 
--  Should output be only the new file or the combined datasets?
+-  Update both intersection tests to not find polygons that only touch.
 -  Have contributors make a branch named with lab name and date?
 -  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
 - remove filepaths and metadata columns that I set
@@ -164,6 +164,22 @@ get_uuids_by_index_string <- function(index_string, df) {
                 pull(UUID) |>
                 unique(),
               collapse = ',')
+}
+```
+
+## remove_adjacent_polys
+
+```{r}
+remove_adjacent_polys <- function(intersections, adjacent_polys) {
+  intersections <- str_split(intersections, ',')
+  adjacent_polys <- str_split(adjacent_polys, ',')
+  
+  intersections <- map2(intersections,
+                        adjacent_polys,
+                        ~ str_flatten(.x[which(!.x %in% .y)], collapse = ','))
+  
+  return(intersections)
+  
 }
 ```
 
@@ -462,6 +478,13 @@ new_data <- new_data |>
                     sparse = TRUE),
       ~ str_flatten(.x, collapse = ',')
     ),
+    AdjacentPolys = map_chr(
+      st_touches(new_data,
+                    rts_data,
+                    sparse = TRUE),
+      ~ str_flatten(.x, collapse = ',')
+    ),
+    Intersections = remove_adjacent_polys(Intersections, AdjacentPolys),
     .after = colnames(new_data)[length(which(colnames(new_data) != 'geometry'))]
   ) |>
   rowwise() |>
@@ -469,7 +492,8 @@ new_data <- new_data |>
     Intersections = get_uuids_by_index_string(Intersections, rts_data),
     .after = Intersections
   ) |>
-  ungroup()
+  ungroup() |>
+  select(-AdjacentPolys)
 
 overlapping_data <- new_data |>
   filter(str_length(Intersections) > 0)
@@ -583,6 +607,14 @@ new_data <- new_data %>%
       st_intersects(x = new_data, remove_self = TRUE),
       ~ str_flatten(.x, collapse = ',')
     ),
+    SelfAdjacentIndices = map_chr(
+      st_touches(x = new_data, remove_self = TRUE),
+      ~ str_flatten(.x, collapse = ',')
+    ),
+    SelfIntersectionIndices = case_when(
+      str_length(SelfAdjacentIndices) > 0 ~ '',
+      TRUE ~ SelfIntersectionIndices
+        ),
     UUID = case_when(
       str_length(
         SelfIntersectionIndices
@@ -594,7 +626,8 @@ new_data <- new_data %>%
                                 SelfIntersectionIndices)
     ),
     .after = RepeatRTS
-  )
+  ) |>
+  select(-SelfAdjacentIndices)
 ```
 
 
