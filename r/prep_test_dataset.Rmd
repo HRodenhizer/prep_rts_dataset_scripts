@@ -34,7 +34,7 @@ polys <- polys |>
           st_transform('EPSG:4326')
     )
   ) |>
-  rename(CentroidLat = X, CentroidLon = Y) |>
+  rename(CentroidLat = Y, CentroidLon = X) |>
   mutate(RegionName = 'Yamal-Gydan',
          CreatorLab = 'Rodenhizer',
          BaseMapDate = paste0(years, '-05-01,', years, '-09-30'),

@@ -103,12 +103,28 @@ check_intersection_info <- function(df) {
       )
   if (!all(int_info_complete$int_info_complete)) {
     
-    print(
-      int_info_complete |>
-        filter(int_info_complete == FALSE)
-      )
+    incomplete_info <- int_info_complete |>
+      filter(int_info_complete == FALSE)
     
-    stop('Incomplete information provided about intersecting RTS polygons. Please complete information for rows printed above.')
+    st_write(incomplete_info, paste(
+      'r_output',
+      paste0(str_split(new_data_file, '\\.')[[1]][1],
+      '_incomplete_information.shp'),
+      sep = '/'))
+    
+    print(
+      incomplete_info
+    )
+    
+    stop(
+      paste0(
+        'Incomplete information provided about intersecting RTS polygons. Please complete information for rows printed above. This file has also been saved to ', paste(
+      'r_output',
+      paste0(str_split(new_data_file, '\\.')[[1]][1],
+      '_incomplete_information.shp'),
+      sep = '/')),
+      ', so that you can determine the problem in your preferred GIS software.'
+      )
   }
   
   print('Intersection information is complete.')
@@ -158,7 +174,7 @@ check_lat <- function(lat) {
   
   correct_type <- class(lat) == 'numeric'
   missing_values <- any(is.na(lat))
-  reasonable_values <- all(lat >= -180 & lat <= 180)
+  reasonable_values <- all(lat >= -90 & lat <= 90)
   
   if (!correct_type) {
     stop('The CentroidLat column is not numeric. Ensure that latitude is reported as decimal degress in WGS 84.')
@@ -173,7 +189,7 @@ check_lon <- function(lon) {
   
   correct_type <- class(lon) == 'numeric'
   missing_values <- any(is.na(lon))
-  reasonable_values <- all(lon >= -90 & lon <= 90)
+  reasonable_values <- all(lon >= -180 & lon <= 180)
   
   if (!correct_type) {
     stop('The CentroidLon column is not numeric. Ensure that longitude is listed as decimal degress in WGS 84.')
@@ -355,7 +371,7 @@ if (calculate_centroid) {
           st_transform('EPSG:4326')
     )
   ) |>
-  rename(CntrdLt = X, CntrdLn = Y) |>
+  rename(CntrdLt = Y, CntrdLn = X) |>
     select(
       all_of(
         c(!!!required_fields[
