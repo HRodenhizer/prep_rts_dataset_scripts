@@ -38,10 +38,12 @@ new_data_filepath <- paste(
 Provide the names of any metadata fields in your new file that are not already in the official RTS Data Set (please check the list to ensure that the field has not been included previously) that you would like to be included in the compiled data set:
 
 ```{r}
-# If your new file is a geojson, this is a simple vector of the character column names. If your new file is a shapefile, it should be provided as a named list, with the names being the full names and the values being the abbreviated names.
-# Geojson Example:
+# Provide new metatdata fields as a list of the character column names. 
+# If your new file is a shapefile, also provide a list of the abbreviated names
+# Example:
 # new_fields <- c('CustomColumn1', 'CustomColumn2')
 # Shapefile example:
+# new_fields_abbreviated = c('CstmCl1', 'CstmCl2')
 # new_fields <- c('CustomColumn1' = 'CstmCl1', 'CustomColumn2' = 'CstmCl2')
 new_fields <- c('CustomColumn1')
 ```
@@ -408,7 +410,10 @@ if (calculate_centroid) {
           )
         ),
         all_of(
-          c(!!!new_fields))
+          c(!!!setNames(
+            new_fields_abbreviated,
+            new_fields
+          )))
         )
   }
   
@@ -445,7 +450,10 @@ if (calculate_centroid) {
           )
         ),
         all_of(
-          c(!!!new_fields))
+          c(!!!setNames(
+            new_fields_abbreviated,
+            new_fields
+          )))
         )
   }
   
@@ -686,7 +694,7 @@ new_data <- new_data |>
     ]
   ) |>
   mutate(ContributionDate = format(Sys.time(), '%Y-%m-%d')) |>
-  select(all_fields)
+  select(all_of(all_fields))
 ```
 
 # Save Formatted File as a Shapefile
@@ -705,7 +713,7 @@ if (separate_file) {
   add_empty_columns(
     names(new_fields)
     ) |>
-  select(all_fields)
+  select(all_of(all_fields))
   
   updated_data <- rts_data |>
     rbind(new_data)
