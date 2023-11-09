@@ -7,7 +7,6 @@ output: html_document
 
 # TODO
 
--  Update both intersection tests to not find polygons that only touch.
 -  Have contributors make a branch named with lab name and date?
 -  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
 - remove filepaths and metadata columns that I set
