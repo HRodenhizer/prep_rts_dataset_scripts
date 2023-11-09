@@ -7,6 +7,7 @@ output: html_document
 
 # TODO
 
+-  Remove contribution date when setting seed for UUID
 -  Have contributors make a branch named with lab name and date?
 -  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
 - remove filepaths and metadata columns that I set
@@ -27,7 +28,7 @@ Before starting, copy your new shapefile into the input_data directory. Make sur
 Provide the file name of the new data:
 
 ```{r}
-new_data_file <- 'rts_dataset_test_polygons_new.shp'  # set this
+new_data_file <- 'rts_dataset_test_polygons_new.geojson'  # set this
 new_data_filepath <- paste(
   'input_data',
   new_data_file,
@@ -37,10 +38,12 @@ new_data_filepath <- paste(
 Provide the names of any metadata fields in your new file that are not already in the official RTS Data Set (please check the list to ensure that the field has not been included previously) that you would like to be included in the compiled data set:
 
 ```{r}
-# Use the format `FullName = AbbreviatedName`, where the FullName should be a human-readable name and the AbbreviatedName should be the ESRI shapefile driver abbreviated version of the the FullName.
-# Example:
-# new_fields <- c('CustomColumn1' = 'CstmCl1')
-new_fields <- c('CustomColumn1' = 'CstmCl1')
+# If your new file is a geojson, this is a simple vector of the character column names. If your new file is a shapefile, it should be provided as a named list, with the names being the full names and the values being the abbreviated names.
+# Geojson Example:
+# new_fields <- c('CustomColumn1', 'CustomColumn2')
+# Shapefile example:
+# new_fields <- c('CustomColumn1' = 'CstmCl1', 'CustomColumn2' = 'CstmCl2')
+new_fields <- c('CustomColumn1')
 ```
 
 Have you already created RTS centroid columns, or would you like them to be created within this script? Provide either TRUE, if the columns do not exist yet, or FALSE, if you have already created them:
@@ -108,7 +111,7 @@ check_intersection_info <- function(df) {
     st_write(incomplete_info, paste(
       'r_output',
       paste0(str_split(new_data_file, '\\.')[[1]][1],
-      '_incomplete_information.shp'),
+      '_incomplete_information.geojson'),
       sep = '/'))
     
     print(
@@ -120,7 +123,7 @@ check_intersection_info <- function(df) {
         'Incomplete information provided about intersecting RTS polygons. Please complete information for rows printed above. This file has also been saved to ', paste(
       'r_output',
       paste0(str_split(new_data_file, '\\.')[[1]][1],
-      '_incomplete_information.shp'),
+      '_incomplete_information.geojson'),
       sep = '/')),
       ', so that you can determine the problem in your preferred GIS software.'
       )
@@ -345,13 +348,11 @@ col_metadata <- read_csv('input_data/metadata_description.csv')
 
 required_fields <- col_metadata |>
   filter(Required == TRUE) |>
-  select(FullColumnName, AbbreviatedColumnName) |>
-  deframe()
+  pull(FullColumnName)
 
 optional_fields <- col_metadata |>
   filter(Required == FALSE) |>
-  select(FullColumnName, AbbreviatedColumnName) |>
-  deframe()
+  pull(FullColumnName)
 
 all_fields <- c(required_fields, optional_fields, new_fields)
 ```
@@ -362,7 +363,7 @@ If you get the error 'Error in `all_of()`: ! Can't subset columns that don't exi
 
 ```{r}
 ### update this to find the dataset online and download it #####################
-rts_file <- 'rts_dataset_test_polygons_current.shp'
+rts_file <- 'rts_dataset_test_polygons_current.geojson'
 rts_data_filepath <- paste(
   'input_data',
   rts_file,
@@ -374,9 +375,10 @@ rts_data <- read_sf(rts_data_filepath) |>
          any_of(c(!!!optional_fields)))
 ################################################################################
 
+new_data <- read_sf(new_data_filepath)
+
 if (calculate_centroid) {
   
-  new_data <- read_sf(new_data_filepath)
   new_data <- new_data |>
     bind_cols(
     st_coordinates(
@@ -386,29 +388,79 @@ if (calculate_centroid) {
           st_transform('EPSG:4326')
     )
   ) |>
-  rename(CntrdLt = Y, CntrdLn = X) |>
-    select(
-      all_of(
-        c(!!!required_fields[
-          which(names(required_fields) != 'UUID')
-        ]
+  rename(CentroidLat = Y, CentroidLon = X)
+  
+  if (str_detect(new_data_file, '\\.geojson')) {
+    new_data <- new_data |>
+      select(
+        all_of(
+          c(!!!required_fields[
+            which(!required_fields %in% c('UUID', 'ContributionDate'))
+          ]
+          )
+        ),
+        any_of(c(!!!optional_fields)),
+        all_of(c(!!!new_fields)))
+    
+  } else if (str_detect(new_data_file, '\\.shp')) {
+    new_data <- new_data |>
+      select(
+        all_of(
+          c(!!!setNames(
+            c('CentroidLat', 'CentroidLon', 'ReginNm', 'CretrLb', 'BasMpDt', 'BsMpSrc', 'BsMpRsl', 'TrnClss'),
+            required_fields[
+              which(!required_fields %in% c('UUID', 'ContributionDate'))
+            ]
+          )
+          )
+        ),
+        any_of(
+          c(!!!setNames(
+            c('StblRTS', 'MrgdRTS', 'Area'),
+            optional_fields)
+          )
+        ),
+        all_of(
+          c(!!!new_fields))
         )
-      ),
-      any_of(c(!!!optional_fields)),
-      all_of(c(!!!new_fields)))
+  }
+  
   
 } else if (!calculate_centroid) {
   
+  if (str_detect(new_data_file, '\\.geojson')) {
   new_data <- read_sf(new_data_filepath) |>
     select(
       all_of(
         c(!!!required_fields[
-          which(names(required_fields) != 'UUID')
+          which(!required_fields %in% c('UUID', 'ContributionDate'))
         ]
         )
       ),
       any_of(c(!!!optional_fields)),
       all_of(c(!!!new_fields)))
+  } else if (str_detect(new_data_file, '\\.shp')) {
+    new_data <- new_data |>
+      select(
+        all_of(
+          c(!!!setNames(
+            c('CntrdLt', 'CntrdLn', 'ReginNm', 'CretrLb', 'BasMpDt', 'BsMpSrc', 'BsMpRsl', 'TrnClss'),
+            required_fields[
+              which(!required_fields %in% c('UUID', 'ContributionDate'))
+            ]
+          )
+          )
+        ),
+        any_of(
+          c(!!!setNames(
+            c('StblRTS', 'MrgdRTS', 'Area'),
+            optional_fields)
+          )
+        ),
+        all_of(
+          c(!!!new_fields))
+        )
+  }
   
 }
 ```
@@ -523,13 +575,13 @@ if (nrow(overlapping_data) > 0) {
            paste('r_output',
                  paste0(
                    str_split(new_data_file, '\\.')[[1]][1],
-                   '_overlapping_polygons.shp'),
+                   '_overlapping_polygons.geojson'),
                  sep = '/'))
   
 }
 ```
 
-At this point, you will need to manually check all polygons with intersections against the polygons in the official RTS data set in your preferred GIS software and save the output to `r paste0(str_split(new_data_file, '\\.')[[1]][1], '_overlapping_polygons_edited.shp')` (press Ctrl+Enter while cursor is in the preceding in-line code chunk to see the actual file name, rather than the code to produce the file name).  When possible/necessary, try to find imagery that matches the date of the intersecting polygons - this may require contacting the lab that did the original delineation.
+At this point, you will need to manually check all polygons with intersections against the polygons in the official RTS data set in your preferred GIS software and save the output to `r paste0(str_split(new_data_file, '\\.')[[1]][1], '_overlapping_polygons_edited.geojson')` (press Ctrl+Enter while cursor is in the preceding in-line code chunk to see the actual file name, rather than the code to produce the file name).  When possible/necessary, try to find imagery that matches the date of the intersecting polygons - this may require contacting the lab that did the original delineation.
 
 Your job is to inspect each of the polygons listed in the 'Intersections' column compared to the new RTS feature and manually copy and paste the UUIDs from the 'Intersections' column into the 'RepeatRTS', 'StabilizedRTS', 'MergedRTS', or 'AccidentalOverlap' based on the relationship between the two polygons.
 
@@ -552,7 +604,7 @@ Add the 'RepeatRTS', 'StabilizedRTS', 'MergedRTS', or 'AccidentalOverlap' column
 edited_file <- paste('r_output', 
                      paste0(
                        str_split(new_data_file, '\\.')[[1]][1], 
-                       '_overlapping_polygons_edited.shp'
+                       '_overlapping_polygons_edited.geojson'
                      ), 
                      sep = '/')
 
@@ -659,7 +711,7 @@ if (separate_file) {
          paste('r_output', 
                paste0(
                  str_split(new_data_file, '\\.')[[1]][1], 
-                 '_formatted.shp'), 
+                 '_formatted.geojson'), 
                sep = '/'))
 } else {
   
@@ -680,4 +732,4 @@ if (separate_file) {
 
 ```
 
-Now you are ready to submit `r ifelse(separate_file == TRUE, paste0(str_split(new_data_file, '\\.')[[1]][1], '_formatted.shp'), rts_file)`!
+Now you are ready to submit `r ifelse(separate_file == TRUE, paste0(str_split(new_data_file, '\\.')[[1]][1], '_formatted.geojson'), rts_file)`!
