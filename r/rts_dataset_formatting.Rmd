@@ -242,18 +242,6 @@ check_creator <- function(creator) {
   }
 }
 
-check_contribution_date <- function(contribution_date) {
-  
-  correct_type <- class(contribution_date) == 'Date'
-  missing_values <- any(is.na(contribution_date))
-  
-  if (!correct_type) {
-    stop('The ContributionDate column does not contain dates (or they are improperly formatted).')
-  } else if (missing_values) {
-    stop('The ContributionDate column is missing values.')
-  }
-}
-
 check_basemap_date <- function(basemap_date) {
   
   correct_type <- all(
@@ -318,7 +306,6 @@ run_formatting_checks <- function(df) {
   check_lon(df$CentroidLon)
   check_region(df$RegionName)
   check_creator(df$CreatorLab)
-  check_contribution_date(df$ContributionDate)
   check_basemap_date(df$BaseMapDate)
   check_source(df$BaseMapSource)
   check_resolution(df$BaseMapResolution)
@@ -611,12 +598,12 @@ edited_file <- paste('r_output',
 if (file.exists(edited_file)) {
   
   overlapping_data <- read_sf(edited_file) |>
-    select(all_of(c(!!!required_fields)),
+    select(all_of(c(!!!required_fields[which(required_fields != 'ContributionDate')])),
            all_of(c(!!!optional_fields[
-             which(names(optional_fields) %in% c('StabilizedRTS', 'MergedRTS'))
+             which(optional_fields %in% c('StabilizedRTS', 'MergedRTS'))
            ])),
            any_of(c(!!!optional_fields[
-             which(!names(optional_fields) %in% c('StabilizedRTS', 'MergedRTS'))
+             which(!optional_fields %in% c('StabilizedRTS', 'MergedRTS'))
            ])),
            all_of(c(!!!new_fields)),
            seed,
@@ -694,13 +681,12 @@ check_intersection_info(new_data)
 ```{r}
 new_data <- new_data |>
   add_empty_columns(
-    names(
-      optional_fields[
-        which(!names(optional_fields) %in% c('StabilizedRTS', 'MergedRTS'))
-        ]
-      )
-    ) |>
-  select(names(all_fields))
+    optional_fields[
+      which(!optional_fields %in% c('StabilizedRTS', 'MergedRTS'))
+    ]
+  ) |>
+  mutate(ContributionDate = format(Sys.time(), '%Y-%m-%d')) |>
+  select(all_fields)
 ```
 
 # Save Formatted File as a Shapefile
@@ -719,7 +705,7 @@ if (separate_file) {
   add_empty_columns(
     names(new_fields)
     ) |>
-  select(names(all_fields))
+  select(all_fields)
   
   updated_data <- rts_data |>
     rbind(new_data)
