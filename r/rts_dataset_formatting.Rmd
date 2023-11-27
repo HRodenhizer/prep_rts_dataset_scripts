@@ -114,7 +114,8 @@ check_intersection_info <- function(df) {
       'r_output',
       paste0(str_split(new_data_file, '\\.')[[1]][1],
       '_incomplete_information.geojson'),
-      sep = '/'))
+      sep = '/'), 
+         append = FALSE)
     
     print(
       incomplete_info
@@ -136,12 +137,12 @@ check_intersection_info <- function(df) {
 }
 ```
 
-## get_earliest_UID
+## get_earliest_uid
 
 Return `UID` from feature with earliest `BaseMapDate` for features in `new_data` that overlap eachother.
 
 ```{r}
-get_earliest_UID <- function(df, index_col, self_intersections_col) {
+get_earliest_uid <- function(df, index_col, self_intersections_col) {
   
   indices <- c(index_col,
            as.numeric(split_string_to_vector(self_intersections_col)))
@@ -156,10 +157,10 @@ get_earliest_UID <- function(df, index_col, self_intersections_col) {
 }
 ```
 
-## get_UIDs_by_index_string
+## get_uids_by_index_string
 
 ```{r}
-get_UIDs_by_index_string <- function(index_string, df) {
+get_uids_by_index_string <- function(index_string, df) {
   str_flatten(df |>
                 slice(as.numeric(
                   str_split(index_string, ',') |>
@@ -337,11 +338,11 @@ col_metadata <- read_csv('input_data/metadata_description.csv')
 
 required_fields <- col_metadata |>
   filter(Required == TRUE) |>
-  pull(FullColumnName)
+  pull(FieldName)
 
 optional_fields <- col_metadata |>
   filter(Required == FALSE) |>
-  pull(FullColumnName)
+  pull(FieldName)
 
 all_fields <- c(required_fields, optional_fields, new_fields)
 ```
@@ -384,7 +385,7 @@ if (calculate_centroid) {
       select(
         all_of(
           c(!!!required_fields[
-            which(!required_fields %in% c('UID', 'ContributionDate'))
+            which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
           ]
           )
         ),
@@ -398,7 +399,7 @@ if (calculate_centroid) {
           c(!!!setNames(
             c('CentroidLat', 'CentroidLon', 'ReginNm', 'CretrLb', 'BasMpDt', 'BsMpSrc', 'BsMpRsl', 'TrnClss'),
             required_fields[
-              which(!required_fields %in% c('UID', 'ContributionDate'))
+              which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
             ]
           )
           )
@@ -425,7 +426,7 @@ if (calculate_centroid) {
     select(
       all_of(
         c(!!!required_fields[
-          which(!required_fields %in% c('UID', 'ContributionDate'))
+          which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
         ]
         )
       ),
@@ -438,7 +439,7 @@ if (calculate_centroid) {
           c(!!!setNames(
             c('CntrdLt', 'CntrdLn', 'ReginNm', 'CretrLb', 'BasMpDt', 'BsMpSrc', 'BsMpRsl', 'TrnClss'),
             required_fields[
-              which(!required_fields %in% c('UID', 'ContributionDate'))
+              which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
             ]
           )
           )
@@ -497,18 +498,18 @@ new_seeds <- pull(new_data, seed)
 
 Generate UIDs (Python via reticulate package)
 ```{python}
-import UID
+import uuid
 ```
 
 ```{python}
-new_UIDs = [str(UID.UID5(UID.NAMESPACE_DNS, name = seed)) for seed in r.new_seeds]
-r.new_UIDs = new_UIDs
+new_uids = [str(uuid.uuid5(uuid.NAMESPACE_DNS, name = seed)) for seed in r.new_seeds]
+r.new_uids = new_uids
 ```
 
 Add UIDs to New RTS Data (R)
 ```{r}
 new_data <- new_data |>
-  mutate(UID = new_UIDs,
+  mutate(UID = new_uids,
          .after = seed)
 ```
 
@@ -536,7 +537,7 @@ new_data <- new_data |>
   ) |>
   rowwise() |>
   mutate(
-    Intersections = get_UIDs_by_index_string(Intersections, rts_data),
+    Intersections = get_uids_by_index_string(Intersections, rts_data),
     .after = Intersections
   ) |>
   ungroup() |>
@@ -567,12 +568,13 @@ if (nrow(overlapping_data) > 0) {
     mutate(AccidentalOverlap = NA,
            .before = geometry)
   
-  write_sf(overlapping_data,
+  st_write(overlapping_data,
            paste('r_output',
                  paste0(
                    str_split(new_data_file, '\\.')[[1]][1],
                    '_overlapping_polygons.geojson'),
-                 sep = '/'))
+                 sep = '/'), 
+         append = FALSE)
   
 }
 ```
@@ -668,7 +670,7 @@ new_data <- new_data %>%
       ) == 0 | UID == RepeatRTS ~ UID,
       str_length(
         SelfIntersectionIndices
-      ) > 0 ~ get_earliest_UID(., 
+      ) > 0 ~ get_earliest_uid(., 
                                 idx,
                                 SelfIntersectionIndices)
     ),
@@ -702,12 +704,13 @@ new_data <- new_data |>
 
 ```{r}
 if (separate_file) {
-  write_sf(new_data,
+  st_write(new_data,
          paste('r_output', 
                paste0(
                  str_split(new_data_file, '\\.')[[1]][1], 
                  '_formatted.geojson'), 
-               sep = '/'))
+               sep = '/'), 
+         append = FALSE)
 } else {
   
   rts_data <- rts_data |>
@@ -719,10 +722,11 @@ if (separate_file) {
   updated_data <- rts_data |>
     rbind(new_data)
   
-  write_sf(updated_data,
+  st_write(updated_data,
          paste('r_output', 
                rts_file, 
-               sep = '/'))
+               sep = '/'), 
+         append = FALSE)
 }
 
 ```
