@@ -40,7 +40,8 @@ polys <- polys |>
          BaseMapDate = paste0(years, '-05-01,', years, '-09-30'),
          BaseMapSource = 'WorldView-2',
          BaseMapResolution = 4,
-         TrainClass = 'Positive') |>
+         TrainClass = 'Positive',
+         LabelType = 'Polygon') |>
   select(id, 
          CentroidLat, 
          CentroidLon, 
@@ -50,7 +51,8 @@ polys <- polys |>
          BaseMapDate, 
          BaseMapSource, 
          BaseMapResolution,
-         TrainClass)
+         TrainClass,
+         LabelType)
 ```
 
 ```{r}
@@ -71,7 +73,8 @@ current_data <- current_data |>
                               BaseMapDate,
                               BaseMapSource,
                               BaseMapResolution,
-                              TrainClass)),
+                              TrainClass,
+                              LabelType)),
          .by = c(CentroidLat, CentroidLon))
 
 rts_seeds <- pull(current_data, seed)
@@ -82,13 +85,13 @@ import uuid
 ```
 
 ```{python}
-rts_uuids = [str(uuid.uuid5(uuid.NAMESPACE_DNS, name = seed)) for seed in r.rts_seeds]
-r.rts_uuids = rts_uuids
+rts_uids = [str(uuid.uuid5(uuid.NAMESPACE_DNS, name = seed)) for seed in r.rts_seeds]
+r.rts_uids = rts_uids
 ```
 
 ```{r}
 current_data <- current_data |>
-  mutate(UUID = rts_uuids,
+  mutate(UID = rts_uids,
          StabilizedRTS = '',
          MergedRTS = '',
          Area = as.numeric(st_area(geometry))) |>
@@ -101,7 +104,8 @@ current_data <- current_data |>
          BaseMapSource, 
          BaseMapResolution,
          TrainClass,
-         UUID,
+         LabelType,
+         UID,
          StabilizedRTS,
          MergedRTS,
          Area)
@@ -116,10 +120,18 @@ new_data <- new_data |>
 ```
 
 ```{r}
-write_sf(current_data,
-         'input_data/rts_dataset_test_polygons_current.shp')
+st_write(current_data,
+         'input_data/rts_dataset_test_polygons_current.shp',
+         append = FALSE)
+st_write(current_data,
+         'input_data/rts_dataset_test_polygons_current.geojson',
+         append = FALSE)
 
-write_sf(new_data,
-         'input_data/rts_dataset_test_polygons_new.shp')
+st_write(new_data,
+         'input_data/rts_dataset_test_polygons_new.shp',
+         append = FALSE)
+st_write(new_data,
+         'input_data/rts_dataset_test_polygons_new.geojson',
+         append = FALSE)
 ```
 
