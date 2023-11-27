@@ -484,7 +484,8 @@ new_data <- new_data |>
         BaseMapDate,
         BaseMapSource,
         BaseMapResolution,
-        TrainClass
+        TrainClass,
+        LabelType
       )
     ),
     .after = TrainClass
