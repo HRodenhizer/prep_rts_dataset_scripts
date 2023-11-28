@@ -568,6 +568,8 @@ if (nrow(overlapping_data) > 0) {
     mutate(AccidentalOverlap = NA,
            .before = geometry)
   
+  print(overlapping_data)
+  
   st_write(overlapping_data,
            paste('r_output',
                  paste0(
@@ -576,6 +578,15 @@ if (nrow(overlapping_data) > 0) {
                  sep = '/'), 
          append = FALSE)
   
+  print(paste('Overlapping polygons have been saved to', 
+              paste('r_output',
+                 paste0(
+                   str_split(new_data_file, '\\.')[[1]][1],
+                   '_overlapping_polygons.geojson'),
+                 sep = '/')))
+  
+} else {
+  print('There were no overlapping polygons. Proceed to the next code chunk without any manual editing.')
 }
 ```
 
