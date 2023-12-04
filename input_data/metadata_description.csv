@@ -12,4 +12,5 @@ LabelType,String,True,"Type of digitisation, e.g. ‘Polygon’, ‘BoundingBox�
 MergedRTS,String,True,UIDs of intersecting RTS that merged into one RTS
 StabilizedRTS,String,True,UIDs of intersecting stabilized RTS scars
 UID,36-character alphanumeric string,True,Unique identifier generated using uuid5 by concatenating all known mandatory metadata fields as a single string
+BaseMapID,String,False,Image ID if a single image was used in polygon delineation
 Area,Number,False,Area of the RTS polygon (m2)
