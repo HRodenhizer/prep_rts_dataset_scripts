@@ -37,9 +37,34 @@ def get_earliest_uid(df_subset, df):
      
     df = df[df.UID.isin(uids)]
     
+    earliest_df = df[df.ContributionDate == df.ContributionDate.min()]
     earliest_df = df[df.BaseMapDate == df.BaseMapDate.min()]
     
     return earliest_df.UID.iloc[0]
+
+# get_intersecting_uuids
+# this is to get the uuids of any rts polygons which touch or overlap
+def get_intersecting_uids(polygon, df):
+    intersections = [','.join(gpd.overlay(polygon, df, how='intersection').UID_2)]
+    return intersections
+
+# get_touching_uuids
+# this is to get the uuids of any rts polygons which touch (only the edges touch, no overlap)
+def get_touching_uids(polygon, df):
+    adjacent_polys = [','.join([uid for rts, uid in zip(df.geometry, df.UID) if polygon.geometry.touches(rts).reset_index()[0][0]])]
+    return adjacent_polys
+
+# remove_adjacent_polys
+# this removes the uuids of any polygons which touch, but do not overlap, the current rts polygon from the adjacent_polys column
+def remove_adjacent_polys(intersections, adjacent_polys):
+    intersections = [item.split(',') for item in intersections]
+    adjacent_polys = [item.split(',') for item in adjacent_polys]
+    fixed_intersections = []
+    for idx in range(0, len(intersections)):
+        fixed_intersection = [[intersection for intersection in intersections[idx] if intersection not in adjacent_polys[idx]]]
+        fixed_intersections = fixed_intersections + fixed_intersection
+    fixed_intersections = [','.join(item) for item in fixed_intersections]
+    return fixed_intersections
 
 # run_formatting_checks
 def check_lat(lat):
@@ -134,28 +159,3 @@ def run_formatting_checks(df):
     check_train_class(df.TrainClass)
     
     print('Formatting looks good!')
-
-# get_intersecting_uuids
-# this is to get the uuids of any rts polygons which touch or overlap
-def get_intersecting_uids(polygon, df):
-    intersections = [','.join(gpd.overlay(polygon, df, how='intersection').UID_2)]
-    return intersections
-
-# get_touching_uuids
-# this is to get the uuids of any rts polygons which touch (only the edges touch, no overlap)
-def get_touching_uids(polygon, df):
-    adjacent_polys = [','.join([uid for rts, uid in zip(df.geometry, df.UID) if polygon.geometry.touches(rts).reset_index()[0][0]])]
-    return adjacent_polys
-
-# remove_adjacent_polys
-# this removes the uuids of any polygons which touch, but do not overlap, the current rts polygon from the adjacent_polys column
-def remove_adjacent_polys(intersections, adjacent_polys):
-    intersections = [item.split(',') for item in intersections]
-    adjacent_polys = [item.split(',') for item in adjacent_polys]
-    fixed_intersections = []
-    for idx in range(0, len(intersections)):
-        fixed_intersection = [[intersection for intersection in intersections[idx] if intersection not in adjacent_polys[idx]]]
-        fixed_intersections = fixed_intersections + fixed_intersection
-    fixed_intersections = [','.join(item) for item in fixed_intersections]
-    return fixed_intersections
-

@@ -397,6 +397,7 @@ Intersections within the new data set are assumed to be repeat delineations of t
 
 ```{r}
 new_data <- new_data %>%
+  mutate(ContributionDate = format(Sys.time(), '%Y-%m-%d')) %>%
   mutate(
     idx = seq(1:nrow(new_data)),
     # get all intersections for each RTS feature (excluding itself)
@@ -444,7 +445,6 @@ new_data <- new_data |>
       which(!optional_fields %in% c('StabilizedRTS', 'MergedRTS'))
     ]
   ) |>
-  mutate(ContributionDate = format(Sys.time(), '%Y-%m-%d')) |>
   select(all_of(all_fields))
 ```
 

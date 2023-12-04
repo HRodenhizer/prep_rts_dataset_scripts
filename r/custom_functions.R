@@ -72,6 +72,7 @@ get_earliest_uid <- function(df, index_col, self_intersections_col) {
   return(
     df |>
       slice(indices) |>
+      filter(ContributionDate == min(ContributionDate)) |>
       filter(BaseMapDate == min(BaseMapDate)) |>
       pull(UID)
   )
