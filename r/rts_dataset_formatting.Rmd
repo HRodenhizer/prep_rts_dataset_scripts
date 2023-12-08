@@ -25,7 +25,7 @@ source("./r/custom_functions.R")
 
 ## User-Defined Input
 
-Before starting, copy your new shapefile into the input_data directory. Make sure that your shapefile uses EPSG:3413 (WGS 84 / NSIDC Sea Ice Polar Stereographic North) as the coordinate system, otherwise this script will not work.
+Before starting, copy your new shapefile into the input_data directory. It is preferred that your file use EPSG:3413 (WGS 84 / NSIDC Sea Ice Polar Stereographic North) as the coordinate system, but this script will perform the transformation if necessary.
 Provide the file name of the new data:
 
 ```{r}
@@ -103,6 +103,10 @@ rts_data <- read_sf(rts_data_filepath) |>
 ################################################################################
 
 new_data <- read_sf(new_data_filepath)
+
+if (st_crs(new_data) != st_crs(3413)) {
+  new_data <- st_transform(new_data, crs = 3413)
+}
 
 if (calculate_centroid) {
   
