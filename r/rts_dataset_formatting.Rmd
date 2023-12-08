@@ -7,12 +7,9 @@ output: html_document
 
 # TODO
 
--  Remove contribution date when setting seed for UID
--  Have contributors make a branch named with lab name and date?
--  Make the script find and download the current version of the RTS dataset and metadata description rather than providing the filepath manually (or ask people to confirm that the latest changes have been pulled down prior to reading in data from the project)
-- remove filepaths and metadata columns that I set
--  think through environment sharing (rts_dataset.rproj, .env, renv)
--  finalize file organization/filepaths so that they don't differ between R and Python
+-  add AdjacentRTS column?
+-  change required column to factor with 'required', 'derived', and 'optional'
+-  calculate area in script? (update to derived in metadata?)
 
 # Set-Up
 
@@ -54,7 +51,7 @@ Have you already created RTS centroid columns, or would you like them to be crea
 ```{r}
 # Example: 
 # calculate_centroid <- FALSE
-calculate_centroid <- FALSE
+calculate_centroid <- TRUE
 ```
 
 Would you like your formatted new data to be output in its own file (in which case you will email the file of new features to us to merge with the compiled data set) or appended the compiled dataset (in which case you will commit your updated file to your forked github repository and create a pull request to add the file to the official github repository). Your decision here should mostly be based on your comfort with github. If you have no idea what the second half of that sentence means, please opt for the separate file and email it to us.
@@ -69,9 +66,7 @@ separate_file <- TRUE
 # Import Metadata Description File
 
 ```{r}
-### update this to download the current version automatically ##################
 col_metadata <- read_csv('input_data/metadata_description.csv')
-################################################################################
 
 required_fields <- col_metadata |>
   filter(Required == TRUE) |>
@@ -89,7 +84,6 @@ all_fields <- c(required_fields, optional_fields, new_fields)
 If you get the error 'Error in `all_of()`: ! Can't subset columns that don't exist. ✖ Column `{required_column}` doesn't exist.', check to make sure that all of the required columns (except UID, and optionally CentroidLat and CentroidLon) and new columns are present and named correctly in your shapefile of new RTS features.
 
 ```{r}
-### update this to find the dataset online and download it #####################
 rts_file <- 'rts_dataset_test_polygons_current.geojson'
 rts_data_filepath <- paste(
   'input_data',
@@ -100,8 +94,9 @@ rts_data_filepath <- paste(
 rts_data <- read_sf(rts_data_filepath) |>
   select(all_of(c(!!!required_fields)),
          any_of(c(!!!optional_fields)))
-################################################################################
+```
 
+```{r}
 new_data <- read_sf(new_data_filepath)
 
 if (st_crs(new_data) != st_crs(3413)) {
