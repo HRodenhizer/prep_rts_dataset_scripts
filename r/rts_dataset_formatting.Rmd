@@ -7,8 +7,6 @@ output: html_document
 
 # TODO
 
--  add AdjacentRTS column?
--  change required column to factor with 'required', 'derived', and 'optional'
 -  calculate area in script? (update to derived in metadata?)
 
 # Set-Up
@@ -69,14 +67,21 @@ separate_file <- TRUE
 col_metadata <- read_csv('input_data/metadata_description.csv')
 
 required_fields <- col_metadata |>
-  filter(Required == TRUE) |>
+  filter(Required == 'True') |>
+  pull(FieldName)
+
+generated_fields <- col_metadata |>
+  filter(Required == 'Generated') |>
   pull(FieldName)
 
 optional_fields <- col_metadata |>
-  filter(Required == FALSE) |>
+  filter(Required == 'False') |>
   pull(FieldName)
 
-all_fields <- c(required_fields, optional_fields, new_fields)
+all_fields <- c(required_fields, 
+                generated_fields, 
+                optional_fields, 
+                new_fields)
 ```
 
 
@@ -93,106 +98,86 @@ rts_data_filepath <- paste(
 
 rts_data <- read_sf(rts_data_filepath) |>
   select(all_of(c(!!!required_fields)),
-         any_of(c(!!!optional_fields)))
+         any_of(c(!!!generated_fields, !!!optional_fields)))
 ```
 
 ```{r}
 new_data <- read_sf(new_data_filepath)
 
+# convert to EPSG:3413 if necessary
 if (st_crs(new_data) != st_crs(3413)) {
   new_data <- st_transform(new_data, crs = 3413)
 }
 
+# calculate centroid, if requested
 if (calculate_centroid) {
   
   new_data <- new_data |>
+    select(-any_of(c('CentroidLat', 'CentroidLon'))) |>
     bind_cols(
-    st_coordinates(
-      st_centroid(
-        new_data
-      ) |>
+      st_coordinates(
+        st_centroid(
+          new_data
+        ) |>
           st_transform('EPSG:4326')
+      )
     )
-  ) |>
-  rename(CentroidLat = Y, CentroidLon = X)
   
   if (str_detect(new_data_file, '\\.geojson')) {
     new_data <- new_data |>
-      select(
-        all_of(
-          c(!!!required_fields[
-            which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
-          ]
-          )
-        ),
-        any_of(c(!!!optional_fields)),
-        all_of(c(!!!new_fields)))
+      rename(CentroidLat = Y, CentroidLon = X) |>
+      mutate(CentroidLat = round(CentroidLat, 5),
+             CentroidLon = round(CentroidLon, 5))
     
   } else if (str_detect(new_data_file, '\\.shp')) {
     new_data <- new_data |>
-      select(
-        all_of(
-          c(!!!setNames(
-            c('CentroidLat', 'CentroidLon', 'ReginNm', 'CretrLb', 'BasMpDt', 'BsMpSrc', 'BsMpRsl', 'TrnClss'),
-            required_fields[
-              which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
-            ]
-          )
-          )
-        ),
-        any_of(
-          c(!!!setNames(
-            c('StblRTS', 'MrgdRTS', 'Area'),
-            optional_fields)
-          )
-        ),
-        all_of(
-          c(!!!setNames(
-            new_fields_abbreviated,
-            new_fields
-          )))
-        )
+      rename(CntrdLt = Y, CntrdLn = X) |>
+      mutate(CntrdLt = round(CntrdLt, 5),
+             CntrdLn = round(CntrdLn, 5))
+    
   }
   
+}
+
+# select correct columns
+if (str_detect(new_data_file, '\\.geojson')) {
   
-} else if (!calculate_centroid) {
+  new_data <- new_data |>
+    select(
+      all_of(c(!!!required_fields)),
+      any_of(c(!!!generated_fields)),
+      any_of(c(!!!optional_fields)),
+      all_of(c(!!!new_fields))
+    )
   
-  if (str_detect(new_data_file, '\\.geojson')) {
-  new_data <- read_sf(new_data_filepath) |>
+} else if (str_detect(new_data_file, '\\.shp')) {
+  
+  new_data <- new_data |>
     select(
       all_of(
-        c(!!!required_fields[
-          which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
-        ]
+        c(!!!setNames(
+          c('CntrdLt', 'CntrdLn', 'ReginNm', 'CretrLb', 'BasMpDt', 'BsMpSrc', 'BsMpRsl', 'TrnClss', 'LablTyp'),
+          required_fields
+        ))
+      ),
+      any_of(
+        c(!!!setNames(
+          c('MrgdRTS', 'StblRTS', 'ContrDt', 'UID'),
+          generated_fields)
         )
       ),
-      any_of(c(!!!optional_fields)),
-      all_of(c(!!!new_fields)))
-  } else if (str_detect(new_data_file, '\\.shp')) {
-    new_data <- new_data |>
-      select(
-        all_of(
-          c(!!!setNames(
-            c('CntrdLt', 'CntrdLn', 'ReginNm', 'CretrLb', 'BasMpDt', 'BsMpSrc', 'BsMpRsl', 'TrnClss'),
-            required_fields[
-              which(!required_fields %in% c('MergedRTS', 'StabilizedRTS', 'UID', 'ContributionDate'))
-            ]
-          )
-          )
-        ),
-        any_of(
-          c(!!!setNames(
-            c('StblRTS', 'MrgdRTS', 'Area'),
-            optional_fields)
-          )
-        ),
-        all_of(
-          c(!!!setNames(
-            new_fields_abbreviated,
-            new_fields
-          )))
+      any_of(
+        c(!!!setNames(
+          c('BsMpID', 'Area'),
+          optional_fields)
         )
-  }
+      ),
+      all_of(
+        c(!!!setNames(
+          new_fields_abbreviated,
+          new_fields
+        )))
+    )
   
 }
 ```
@@ -214,8 +199,8 @@ new_data <- new_data |>
   mutate(
     seed = str_flatten(
       c(
-        round(CentroidLat, 13),
-        round(CentroidLon, 13),
+        round(CentroidLat, 5),
+        round(CentroidLon, 5),
         RegionName,
         CreatorLab,
         BaseMapDate,
@@ -356,13 +341,9 @@ edited_file <- paste('r_output',
 if (file.exists(edited_file)) {
   
   overlapping_data <- read_sf(edited_file) |>
-    select(all_of(c(!!!required_fields[which(required_fields != 'ContributionDate')])),
-           all_of(c(!!!optional_fields[
-             which(optional_fields %in% c('StabilizedRTS', 'MergedRTS'))
-           ])),
-           any_of(c(!!!optional_fields[
-             which(!optional_fields %in% c('StabilizedRTS', 'MergedRTS'))
-           ])),
+    select(all_of(c(!!!required_fields)),
+           all_of(c(!!!generated_fields)),
+           any_of(c(!!!optional_fields)),
            all_of(c(!!!new_fields)),
            seed,
            Intersections = matches('^I.+t', ignore.case = FALSE),
@@ -439,11 +420,7 @@ check_intersection_info(new_data)
 
 ```{r}
 new_data <- new_data |>
-  add_empty_columns(
-    optional_fields[
-      which(!optional_fields %in% c('StabilizedRTS', 'MergedRTS'))
-    ]
-  ) |>
+  add_empty_columns(optional_fields) |>
   select(all_of(all_fields))
 ```
 
